@@ -5,6 +5,11 @@ const axios = require("axios");
 
 const app = express();
 
+app.use(express.json());
+app.use(express.static("public"));
+
+const payments = new Map();
+
 const PORT = process.env.PORT || 3000;
 
 const BASE_URL =
@@ -13,7 +18,7 @@ const BASE_URL =
     : "https://api.safaricom.co.ke";
 
 app.get("/", (req, res) => {
-  res.send("Daraja test server is running 🚀");
+  res.sendFile(__dirname + "/public/index.html");
 });
 
 app.get("/oauth", async (req, res) => {
@@ -47,8 +52,29 @@ app.get("/oauth", async (req, res) => {
   }
 });
 
-app.get("/stkpush", async (req, res) => {
+app.post("/stkpush", async (req, res) => {
   try {
+    const { phone, amount } = req.body;
+
+    if (!phone || !amount) {
+      return res.status(400).json({
+        error: "Phone number and amount are required"
+      });
+    }
+
+    // Convert Kenyan phone number to 254 format
+    let formattedPhone = phone.replace(/\s+/g, "");
+
+    if (formattedPhone.startsWith("0")) {
+      formattedPhone = "254" + formattedPhone.substring(1);
+    }
+
+    if (!formattedPhone.startsWith("254")) {
+      return res.status(400).json({
+        error: "Invalid Kenyan phone number"
+      });
+    }
+
     // 1. Get OAuth access token
     const credentials = Buffer.from(
       `${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`
@@ -81,7 +107,7 @@ app.get("/stkpush", async (req, res) => {
       `${process.env.MPESA_SHORTCODE}${process.env.MPESA_PASSKEY}${timestamp}`
     ).toString("base64");
 
-    // 4. STK Push request
+    // 4. STK Push
     const stkResponse = await axios.post(
       `${BASE_URL}/mpesa/stkpush/v1/processrequest`,
       {
@@ -89,11 +115,14 @@ app.get("/stkpush", async (req, res) => {
         Password: password,
         Timestamp: timestamp,
         TransactionType: "CustomerPayBillOnline",
-        Amount: 1,
-        PartyA: "254798685285",
+        Amount: Number(amount),
+        PartyA: formattedPhone,
         PartyB: process.env.MPESA_SHORTCODE,
-        PhoneNumber: "254798685285",
-        CallBackURL: "https://fructose-stiffen-hatchback.ngrok-free.dev/mpesa/callback",
+        PhoneNumber: formattedPhone,
+
+        CallBackURL:
+          "https://fructose-stiffen-hatchback.ngrok-free.dev/mpesa/callback",
+
         AccountReference: "DarajaTest",
         TransactionDesc: "Daraja sandbox test",
       },
@@ -107,8 +136,21 @@ app.get("/stkpush", async (req, res) => {
 
     console.log("STK Response:", stkResponse.data);
 
+    const checkoutRequestId =
+      stkResponse.data.CheckoutRequestID;
+
+    // Track payment
+    payments.set(checkoutRequestId, {
+      status: "WAITING",
+      phone: formattedPhone,
+      amount: Number(amount),
+      createdAt: new Date()
+    });
+
     res.json(stkResponse.data);
+
   } catch (error) {
+
     console.error(
       "STK Error:",
       error.response?.data || error.message
@@ -116,12 +158,11 @@ app.get("/stkpush", async (req, res) => {
 
     res.status(500).json({
       error: "STK Push failed",
-      details: error.response?.data || error.message,
+      details:
+        error.response?.data || error.message
     });
   }
 });
-
-app.use(express.json());
 
 app.post("/mpesa/callback", (req, res) => {
   const callback = req.body?.Body?.stkCallback;
@@ -150,6 +191,28 @@ app.post("/mpesa/callback", (req, res) => {
   console.log("Checkout Request ID:", CheckoutRequestID);
   console.log("Result Code:", ResultCode);
   console.log("Result Description:", ResultDesc);
+
+  const payment = payments.get(CheckoutRequestID);
+
+if (payment) {
+  if (ResultCode === 0) {
+
+    const items = CallbackMetadata?.Item || [];
+
+    const receipt = items.find(
+      (item) => item.Name === "MpesaReceiptNumber"
+    )?.Value;
+
+    payment.status = "SUCCESS";
+    payment.resultDesc = ResultDesc;
+    payment.receipt = receipt;
+
+  } else {
+
+    payment.status = "FAILED";
+    payment.resultDesc = ResultDesc;
+  }
+}
 
   if (ResultCode === 0) {
     console.log("✅ PAYMENT SUCCESSFUL");
@@ -186,4 +249,19 @@ app.post("/mpesa/callback", (req, res) => {
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+app.get("/payment-status/:checkoutRequestId", (req, res) => {
+
+  const payment = payments.get(
+    req.params.checkoutRequestId
+  );
+
+  if (!payment) {
+    return res.status(404).json({
+      status: "NOT_FOUND"
+    });
+  }
+
+  res.json(payment);
 });
