@@ -121,7 +121,7 @@ app.post("/stkpush", async (req, res) => {
         PhoneNumber: formattedPhone,
 
         CallBackURL:
-          "https://fructose-stiffen-hatchback.ngrok-free.dev/mpesa/callback",
+          "https://daraja-api-demo.onrender.com/mpesa/callback",
 
         AccountReference: "DarajaTest",
         TransactionDesc: "Daraja sandbox test",
