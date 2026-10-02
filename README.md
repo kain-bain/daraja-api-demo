@@ -176,11 +176,18 @@ The callback URL can then be configured as:
 https://your-ngrok-domain.ngrok-free.dev/mpesa/callback
 ```
 
+Set `MPESA_CALLBACK_URL` in your local `.env` to that full URL before starting
+the server. This ensures the callback updates the same server that the browser
+polls for payment status. Update it whenever your ngrok URL changes.
+
 For the deployed application, the callback uses the Render URL:
 
 ```text
 https://daraja-api-demo.onrender.com/mpesa/callback
 ```
+
+The server uses this Render URL by default. Set `MPESA_CALLBACK_URL` in the
+Render environment variables only if deploying under a different public URL.
 
 ---
 

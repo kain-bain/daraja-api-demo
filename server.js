@@ -17,6 +17,10 @@ const BASE_URL =
     ? "https://sandbox.safaricom.co.ke"
     : "https://api.safaricom.co.ke";
 
+const CALLBACK_URL =
+  process.env.MPESA_CALLBACK_URL ||
+  "https://daraja-api-demo.onrender.com/mpesa/callback";
+
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/public/index.html");
 });
@@ -120,8 +124,7 @@ app.post("/stkpush", async (req, res) => {
         PartyB: process.env.MPESA_SHORTCODE,
         PhoneNumber: formattedPhone,
 
-        CallBackURL:
-          "https://daraja-api-demo.onrender.com/mpesa/callback",
+        CallBackURL: CALLBACK_URL,
 
         AccountReference: "DarajaTest",
         TransactionDesc: "Daraja sandbox test",
