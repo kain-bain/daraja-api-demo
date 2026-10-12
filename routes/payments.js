@@ -13,7 +13,7 @@ function paymentsRouter(db, deps = {}) {
   // ---- Initiate STK push for an order ------------------------------------
 
   router.post(
-    "/orders/:reference/stkpush",
+    "/api/orders/:reference/stkpush",
     requireApiKey,
     writeLimiter,
     async (req, res) => {
@@ -124,7 +124,7 @@ function paymentsRouter(db, deps = {}) {
 
   // ---- Status polling -----------------------------------------------------
 
-  router.get("/orders/:reference/status", (req, res) => {
+  router.get("/api/orders/:reference/status", (req, res) => {
     const order = db
       .prepare("SELECT * FROM orders WHERE reference = ?")
       .get(req.params.reference);
