@@ -79,6 +79,37 @@ function ordersRouter(db) {
     }
   });
 
+  // ---- Read --------------------------------------------------------------
+
+  router.get("/", (req, res) => {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const offset = (page - 1) * limit;
+
+    const total = db.prepare("SELECT COUNT(*) AS n FROM orders").get().n;
+    const orders = db
+      .prepare("SELECT * FROM orders ORDER BY id DESC LIMIT ? OFFSET ?")
+      .all(limit, offset);
+
+    res.json({ page, limit, total, orders });
+  });
+
+  router.get("/:reference", (req, res) => {
+    const order = db
+      .prepare("SELECT * FROM orders WHERE reference = ?")
+      .get(req.params.reference);
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    const payments = db
+      .prepare("SELECT * FROM payments WHERE order_id = ? ORDER BY id DESC")
+      .all(order.id);
+
+    res.json({ ...order, payments });
+  });
+
   return router;
 }
 
