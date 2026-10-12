@@ -61,6 +61,67 @@ function paymentsRouter(db, deps = {}) {
     }
   );
 
+  // ---- M-Pesa callback ----------------------------------------------------
+
+  function itemValue(items, name) {
+    return (items || []).find((i) => i.Name === name)?.Value;
+  }
+
+  router.post("/mpesa/callback", (req, res) => {
+    const callback = req.body?.Body?.stkCallback;
+
+    if (!callback) {
+      return res.json({ ResultCode: 1, ResultDesc: "Invalid callback" });
+    }
+
+    const {
+      MerchantRequestID,
+      CheckoutRequestID,
+      ResultCode,
+      ResultDesc,
+      CallbackMetadata,
+    } = callback;
+
+    const payment = db
+      .prepare("SELECT * FROM payments WHERE checkout_request_id = ?")
+      .get(CheckoutRequestID);
+
+    if (payment) {
+      const success = ResultCode === 0;
+      const items = CallbackMetadata?.Item || [];
+      const receipt = itemValue(items, "MpesaReceiptNumber");
+
+      db.prepare(
+        `UPDATE payments
+         SET status = ?, result_code = ?, result_desc = ?, receipt = ?,
+             raw_callback = ?, updated_at = datetime('now')
+         WHERE id = ?`
+      ).run(
+        success ? "SUCCESS" : "FAILED",
+        ResultCode,
+        ResultDesc,
+        receipt || null,
+        JSON.stringify(req.body),
+        payment.id
+      );
+
+      // Reflect the terminal state back onto the order.
+      if (success) {
+        db.prepare(
+          "UPDATE orders SET status = 'PAID', updated_at = datetime('now') WHERE id = ?"
+        ).run(payment.order_id);
+      } else {
+        db.prepare(
+          "UPDATE orders SET status = 'FAILED', updated_at = datetime('now') WHERE id = ?"
+        ).run(payment.order_id);
+      }
+    } else {
+      console.warn("Callback for unknown CheckoutRequestID:", CheckoutRequestID);
+    }
+
+    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+  });
+
   return router;
 }
 
