@@ -148,6 +148,28 @@ function ordersRouter(db) {
     res.json(updated);
   });
 
+  // ---- Delete ------------------------------------------------------------
+
+  router.delete("/:reference", requireApiKey, (req, res) => {
+    const order = db
+      .prepare("SELECT * FROM orders WHERE reference = ?")
+      .get(req.params.reference);
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (order.status !== "PENDING") {
+      return res
+        .status(409)
+        .json({ error: `Cannot delete a ${order.status} order` });
+    }
+
+    db.prepare("DELETE FROM orders WHERE id = ?").run(order.id);
+
+    res.json({ deleted: true, reference: order.reference });
+  });
+
   return router;
 }
 
