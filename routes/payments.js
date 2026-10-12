@@ -122,6 +122,33 @@ function paymentsRouter(db, deps = {}) {
     res.json({ ResultCode: 0, ResultDesc: "Accepted" });
   });
 
+  // ---- Status polling -----------------------------------------------------
+
+  router.get("/orders/:reference/status", (req, res) => {
+    const order = db
+      .prepare("SELECT * FROM orders WHERE reference = ?")
+      .get(req.params.reference);
+
+    if (!order) {
+      return res.status(404).json({ status: "NOT_FOUND" });
+    }
+
+    const payment = db
+      .prepare("SELECT * FROM payments WHERE order_id = ? ORDER BY id DESC LIMIT 1")
+      .get(order.id);
+
+    if (!payment) {
+      return res.json({ status: order.status });
+    }
+
+    res.json({
+      status: payment.status,
+      orderStatus: order.status,
+      receipt: payment.receipt,
+      resultDesc: payment.result_desc,
+    });
+  });
+
   return router;
 }
 
