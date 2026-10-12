@@ -59,7 +59,8 @@ app.post("/stkpush", async (req, res) => {
        VALUES (?, ?, ?, 'WAITING')`
     ).run(orderResult.lastInsertRowid, data.CheckoutRequestID, data.MerchantRequestID);
 
-    res.json(data);
+    // Return the Daraja payload plus our order reference for status polling.
+    res.json({ ...data, reference });
   } catch (error) {
     console.error("STK Error:", error.response?.data || error.message);
     res.status(500).json({

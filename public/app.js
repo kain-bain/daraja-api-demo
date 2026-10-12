@@ -5,6 +5,7 @@ const payButton = document.getElementById("payButton");
 const statusBox = document.getElementById("status");
 
 let checkoutRequestId = null;
+let orderReference = null;
 let statusInterval = null;
 
 form.addEventListener("submit", async (event) => {
@@ -45,6 +46,7 @@ form.addEventListener("submit", async (event) => {
     }
 
     checkoutRequestId = data.CheckoutRequestID;
+    orderReference = data.reference;
 
     showStatus(
       "STK Push sent. Check your phone and enter your M-Pesa PIN.",
@@ -75,12 +77,12 @@ function startPaymentStatusCheck() {
 
   statusInterval = setInterval(async () => {
 
-    if (!checkoutRequestId) return;
+    if (!orderReference) return;
 
     try {
 
       const response = await fetch(
-        `/payment-status/${checkoutRequestId}`
+        `/api/orders/${orderReference}/status`
       );
 
       const data = await response.json();
@@ -90,6 +92,7 @@ function startPaymentStatusCheck() {
       if (data.status === "SUCCESS") {
 
         clearInterval(statusInterval);
+        statusInterval = null;
 
         showStatus(
           `Payment successful! M-Pesa Receipt: ${data.receipt || "Confirmed"}`,
@@ -101,6 +104,7 @@ function startPaymentStatusCheck() {
       } else if (data.status === "FAILED") {
 
         clearInterval(statusInterval);
+        statusInterval = null;
 
         showStatus(
           data.resultDesc || "Payment was not completed.",
@@ -123,6 +127,8 @@ function stopStatusCheck() {
     clearInterval(statusInterval);
     statusInterval = null;
   }
+  orderReference = null;
+  checkoutRequestId = null;
 }
 
 function showStatus(message, type) {
