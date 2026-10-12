@@ -11,11 +11,13 @@
 
   <main class="container">
 
-    <div class="card">
+    <!-- Payment view -->
+    <section id="payView" class="card">
 
-      <div class="logo">M</div>
-
-      <h1>Pay with M-Pesa</h1>
+      <div class="toolbar">
+        <h1>Pay with M-Pesa</h1>
+        <button id="showOrders" class="link-button" type="button">Orders →</button>
+      </div>
       <p class="subtitle">Enter your details to receive an STK Push.</p>
 
       <form id="paymentForm">
@@ -45,7 +47,22 @@
 
       <div id="status" class="status hidden"></div>
 
-    </div>
+    </section>
+
+    <!-- Orders view -->
+    <section id="ordersView" class="card hidden">
+
+      <div class="toolbar">
+        <h1>Orders</h1>
+        <button id="showPay" class="link-button" type="button">← New payment</button>
+      </div>
+
+      <button id="refreshOrders" class="small-button" type="button">Refresh</button>
+
+      <ul id="ordersList" class="orders-list"></ul>
+      <div id="ordersEmpty" class="empty hidden">No orders yet.</div>
+
+    </section>
 
   </main>
 
