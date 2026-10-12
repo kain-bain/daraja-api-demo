@@ -110,6 +110,44 @@ function ordersRouter(db) {
     res.json({ ...order, payments });
   });
 
+  // ---- Update ------------------------------------------------------------
+
+  router.patch("/:reference", requireApiKey, (req, res) => {
+    const order = db
+      .prepare("SELECT * FROM orders WHERE reference = ?")
+      .get(req.params.reference);
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (order.status !== "PENDING") {
+      return res
+        .status(409)
+        .json({ error: `Cannot modify a ${order.status} order` });
+    }
+
+    const { phone, amount } = req.body || {};
+    const validation = validateOrderPayload({
+      phone: phone ?? order.phone,
+      amount: amount ?? order.amount,
+    });
+
+    if (validation.error) {
+      return res.status(400).json({ error: validation.error });
+    }
+
+    db.prepare(
+      "UPDATE orders SET phone = ?, amount = ?, updated_at = datetime('now') WHERE id = ?"
+    ).run(validation.normalizedPhone, validation.amount, order.id);
+
+    const updated = db
+      .prepare("SELECT * FROM orders WHERE id = ?")
+      .get(order.id);
+
+    res.json(updated);
+  });
+
   return router;
 }
 
